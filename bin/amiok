@@ -1,6 +1,10 @@
 #!/usr/bin/env ruby
 
-$:.unshift(File.expand_path('../../lib', __FILE__))
-require 'amiok'
+# When it's invoked directly and not from Rubygems
+if $0 == __FILE__ 
+  $:.unshift(File.expand_path('../../lib', __FILE__))
+  require 'rubygems'
+end
 
+require 'amiok'
 Amiok.run(ARGV)
