@@ -1,7 +1,9 @@
 class Amiok
   POSSIBLE_LOCATIONS = %w(
     /etc/apache2
+    /etc/httpd
   )
+  GOOD_RESPONSES = %w(200 301 302 401 403)
   
   class << self
     attr_accessor :output
@@ -15,7 +17,7 @@ class Amiok
   end
   
   def grep
-    `grep -r -i -e 'server\\(name\\|alias\\)' /etc/apache2`
+    `grep -r -i -e 'server\\(name\\|alias\\)' #{apache_directory} 2> /dev/null`
   end
   
   def domains
@@ -34,13 +36,34 @@ class Amiok
   end
   
   def status(domain)
-    (line = curl(domain).split("\n")[0]) ? line : 'unknown'
+    if status_line = curl(domain).split("\n")[0]
+      status = status_line.split(' ', 2)[-1]
+      status.split(' ', 2)
+    else
+      ['', "Can't find server"]
+    end
+  end
+  
+  def _failed
+    domains.inject([]) do |failed, domain|
+      status_code, status_message = status(domain)
+      write('.')
+      unless GOOD_RESPONSES.include?(status_code)
+        failed << { 'domain' => domain, 'status_code' => status_code, 'status_message' => status_message }
+      end
+      failed
+    end
+  end
+  
+  def failed
+    @failed ||= _failed
   end
   
   def run
-    domains.each do |domain|
-      write(domain.ljust(20))
-      write(" #{status(domain)}\n")
+    just = failed.map { |f| f['domain'].length }.max
+    write("\n")
+    failed.each do |f|
+      write("#{f['domain'].ljust(just + 5)}#{f['status_message']}\n")
     end
   end
   
